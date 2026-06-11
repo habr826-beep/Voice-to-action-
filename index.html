@@ -1,74 +1,534 @@
-         at.style.color = '#444';
-    at.style.textDecoration = 'line-through';
-  } else {
-    cb.style.background = 'transparent';
-    cb.style.borderColor = '#333';
-    cb.textContent = ' ';
-    at.style.color = '#ddd';
-    at.style.textDecoration = 'none';
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#6C63FF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="VoiceAI" />
+  <title>Voice → Action</title>
+  <link rel="manifest" href="./manifest.json" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg: #0A0A0F; --surface: #13131f; --surface2: #1a1a2e;
+      --border: #ffffff10; --text: #E8E8F0; --muted: #777; --dim: #444;
+      --accent: #6C63FF; --accent2: #a855f7; --green: #10B981; --yellow: #F59E0B; --red: #EF4444; --blue: #3B82F6;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; overflow-x: hidden; }
+
+    /* HEADER */
+    .header { position: sticky; top: 0; z-index: 100; background: rgba(10,10,15,0.95); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: max(14px, env(safe-area-inset-top)) 16px 14px; display: flex; align-items: center; justify-content: space-between; }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .hicon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 17px; }
+    .htitle { font-size: 16px; font-weight: 700; }
+    .hsub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+    .hbtn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); width: 34px; height: 34px; border-radius: 50%; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+    /* API SCREEN */
+    .api-screen { position: fixed; inset: 0; background: var(--bg); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .api-card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 28px 20px; width: 100%; max-width: 380px; }
+    .api-icon { font-size: 38px; text-align: center; margin-bottom: 14px; }
+    .api-title { font-size: 19px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+    .api-desc { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.6; margin-bottom: 16px; }
+    .api-warn { background: #F59E0B12; border: 1px solid #F59E0B30; border-radius: 10px; padding: 10px 12px; font-size: 12px; color: #F59E0B; margin-bottom: 14px; line-height: 1.5; }
+    .api-wrap { position: relative; margin-bottom: 12px; }
+    .api-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 13px 44px 13px 14px; color: var(--text); font-size: 13px; outline: none; font-family: monospace; }
+    .api-input:focus { border-color: #6C63FF55; }
+    .eye-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-size: 17px; cursor: pointer; }
+    .api-save { width: 100%; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .api-link { display: block; text-align: center; margin-top: 12px; font-size: 12px; color: var(--accent); text-decoration: none; }
+
+    /* MAIN */
+    .main { padding: 14px 13px 120px; max-width: 520px; margin: 0 auto; }
+
+    /* INPUT */
+    .input-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; margin-bottom: 12px; }
+    .input-card:focus-within { border-color: #6C63FF44; }
+    textarea { width: 100%; min-height: 120px; background: transparent; border: none; outline: none; color: var(--text); font-size: 15px; line-height: 1.65; padding: 15px 15px 8px; resize: none; font-family: inherit; }
+    textarea::placeholder { color: #333; }
+    .input-footer { display: flex; align-items: center; gap: 8px; padding: 6px 13px 13px; }
+    .char-count { font-size: 11px; color: var(--dim); flex-shrink: 0; }
+    .mic-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .mic-btn.recording { background: #EF444418; border-color: #EF4444; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 #EF444428} 50%{box-shadow:0 0 0 7px #EF444400} }
+    .classify-btn { flex: 1; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; border-radius: 11px; padding: 11px 16px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .classify-btn:disabled { background: var(--surface2); color: var(--dim); cursor: default; }
+
+    /* LOADING */
+    .loading { text-align: center; padding: 40px 0; }
+    .spin { font-size: 34px; display: inline-block; animation: bob 0.7s infinite alternate; }
+    @keyframes bob { from{transform:translateY(0)} to{transform:translateY(-7px)} }
+    .loading p { margin-top: 10px; font-size: 13px; color: var(--muted); }
+
+    /* TABS */
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
+    .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+    /* CARDS */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 10px; }
+    .card-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; }
+
+    /* CATEGORY HEADER */
+    .cat-header { border-radius: 16px; padding: 16px; margin-bottom: 10px; border: 1px solid; }
+    .cat-label { font-size: 19px; font-weight: 700; }
+    .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+    .summary { font-size: 14px; color: #bbb; line-height: 1.65; margin-top: 12px; }
+    .insight { font-size: 13px; font-style: italic; line-height: 1.55; margin-top: 8px; }
+
+    /* SWOT */
+    .swot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .swot-box { border-radius: 12px; padding: 12px; border: 1px solid; }
+    .swot-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .swot-item { font-size: 12px; color: #bbb; line-height: 1.5; margin-bottom: 4px; padding-left: 10px; position: relative; }
+    .swot-item::before { content: '•'; position: absolute; left: 0; }
+
+    /* ROADMAP */
+    .roadmap-item { display: flex; gap: 12px; margin-bottom: 14px; }
+    .roadmap-line { display: flex; flex-direction: column; align-items: center; }
+    .roadmap-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .roadmap-connector { width: 2px; flex: 1; margin-top: 4px; min-height: 20px; }
+    .roadmap-content { padding-top: 3px; flex: 1; }
+    .roadmap-week { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 3px; }
+    .roadmap-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .roadmap-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    /* ACTION */
+    .action-item { display: flex; align-items: flex-start; gap: 11px; padding: 9px 0; border-bottom: 1px solid #ffffff05; cursor: pointer; }
+    .action-item:last-child { border-bottom: none; }
+    .checkbox { width: 21px; height: 21px; border-radius: 6px; border: 2px solid #2a2a3a; flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-top: 2px; transition: all 0.15s; font-size: 11px; }
+    .action-text { font-size: 13px; line-height: 1.55; flex: 1; }
+
+    /* MONETIZE */
+    .money-item { padding: 10px 0; border-bottom: 1px solid #ffffff05; }
+    .money-item:last-child { border-bottom: none; }
+    .money-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+    .money-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .money-badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-top: 4px; }
+
+    /* AUDIENCE */
+    .audience-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #ffffff05; }
+    .audience-item:last-child { border-bottom: none; }
+    .audience-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+    .audience-label { font-size: 13px; font-weight: 500; }
+    .audience-desc { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+    /* KEYWORDS */
+    .keyword-cloud { display: flex; flex-wrap: wrap; gap: 7px; }
+    .kw { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 1px solid; cursor: pointer; }
+
+    /* HISTORY */
+    .section-label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; margin-top: 4px; }
+    .history-item { background: var(--surface); border-radius: 12px; padding: 11px 13px; margin-bottom: 7px; border: 1px solid var(--border); cursor: pointer; }
+    .history-top { display: flex; justify-content: space-between; margin-bottom: 3px; }
+    .history-cat { font-size: 12px; font-weight: 600; }
+    .history-conf { font-size: 11px; color: var(--dim); }
+    .history-text { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* EMPTY */
+    .empty { text-align: center; padding: 36px 16px; }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty p { font-size: 14px; line-height: 1.65; color: #444; }
+    .cat-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin-top: 14px; }
+    .cat-pill { font-size: 11px; padding: 4px 11px; border-radius: 20px; border: 1px solid; }
+
+    /* TOAST & ERROR */
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 9px 18px; border-radius: 30px; z-index: 999; animation: tin 0.3s ease; white-space: nowrap; }
+    @keyframes tin { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+    .error-box { background: #EF444412; border: 1px solid #EF444435; border-radius: 12px; padding: 11px 14px; color: #EF4444; font-size: 13px; margin-bottom: 12px; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- API KEY SCREEN -->
+<div class="api-screen" id="apiScreen" style="display:none">
+  <div class="api-card">
+    <div class="api-icon">🔐</div>
+    <div class="api-title">API Key Daalo</div>
+    <div class="api-desc">Teri key sirf tere phone mein save hogi — koi server pe nahi jaati</div>
+    <div class="api-warn">⚠️ Key kisi ko mat dikhana — ye tera private access hai</div>
+    <div class="api-wrap">
+      <input type="password" class="api-input" id="apiKeyInput" placeholder="sk-ant-..." />
+      <button class="eye-btn" onclick="toggleEye()">👁</button>
+    </div>
+    <button class="api-save" onclick="saveKey()">🔒 Save Karo</button>
+    <a href="https://console.anthropic.com" target="_blank" class="api-link">→ console.anthropic.com se free key lo</a>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="hicon">🎙</div>
+    <div>
+      <div class="htitle">Voice → Action</div>
+      <div class="hsub">Deep AI Analysis</div>
+    </div>
+  </div>
+  <button class="hbtn" onclick="showSettings()">⚙️</button>
+</div>
+
+<div class="main">
+  <div class="input-card">
+    <textarea id="noteInput" placeholder="Apna idea, plan, ya thought yahan likho ya mic se bolo...&#10;&#10;Jaise: 'Main ek fitness app banana chahta hoon jo...'"></textarea>
+    <div class="input-footer">
+      <span class="char-count" id="charCount">0</span>
+      <button class="mic-btn" id="micBtn">🎙</button>
+      <button class="classify-btn" id="classifyBtn" disabled onclick="classify()">🧠 Deep Analyse Karo</button>
+    </div>
+  </div>
+
+  <div id="errorBox" class="error-box" style="display:none"></div>
+  <div id="loadingBox" class="loading" style="display:none">
+    <div class="spin">🧠</div>
+    <p>Deep analysis ho rahi hai...</p>
+  </div>
+
+  <div id="resultArea" style="display:none">
+    <div id="catHeaderEl"></div>
+    <div class="tabs" id="tabsEl">
+      <div class="tab active" onclick="switchTab('overview')">📊 Overview</div>
+      <div class="tab" onclick="switchTab('swot')">🔍 SWOT</div>
+      <div class="tab" onclick="switchTab('roadmap')">🗺️ Roadmap</div>
+      <div class="tab" onclick="switchTab('actions')">✅ Actions</div>
+      <div class="tab" onclick="switchTab('monetize')">💰 Monetize</div>
+      <div class="tab" onclick="switchTab('audience')">👥 Audience</div>
+      <div class="tab" onclick="switchTab('keywords')">🔑 Keywords</div>
+    </div>
+    <div id="overview" class="tab-content active"></div>
+    <div id="swot" class="tab-content"></div>
+    <div id="roadmap" class="tab-content"></div>
+    <div id="actions" class="tab-content"></div>
+    <div id="monetize" class="tab-content"></div>
+    <div id="audience" class="tab-content"></div>
+    <div id="keywords" class="tab-content"></div>
+  </div>
+
+  <div id="historyBox"></div>
+  <div id="emptyState" class="empty">
+    <div class="empty-icon">🎙️</div>
+    <p>Koi bhi idea ya thought daalo —<br>Deep AI analysis milegi!</p>
+    <div class="cat-pills" id="catPills"></div>
+  </div>
+</div>
+
+<script>
+const CATS = {
+  CONTENT_IDEA: { label: "💡 Content Idea", color: "#6C63FF", bg: "#6C63FF10", border: "#6C63FF30" },
+  BUSINESS_DECISION: { label: "💼 Business Decision", color: "#F59E0B", bg: "#F59E0B10", border: "#F59E0B30" },
+  LIFE_MOMENT: { label: "🌟 Life Changing Moment", color: "#10B981", bg: "#10B98110", border: "#10B98130" },
+  TASK_TODO: { label: "✅ Task / To-Do", color: "#3B82F6", bg: "#3B82F610", border: "#3B82F630" },
+  PROBLEM: { label: "🔥 Problem / Blocker", color: "#EF4444", bg: "#EF444410", border: "#EF444430" },
+  RANDOM_THOUGHT: { label: "🧠 Random Thought", color: "#8B5CF6", bg: "#8B5CF610", border: "#8B5CF630" }
+};
+const URGENCY_C = { HIGH: "#EF4444", MEDIUM: "#F59E0B", LOW: "#10B981" };
+
+let history = [], checkedActions = {}, currentResult = null, currentData = null;
+let recognition = null, isRecording = false, eyeOn = false;
+
+try { history = JSON.parse(localStorage.getItem('voa_h') || '[]'); } catch(e) { history = []; }
+
+window.addEventListener('load', () => {
+  if (!localStorage.getItem('voa_key')) document.getElementById('apiScreen').style.display = 'flex';
+  initApp();
+});
+
+function saveKey() {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  if (!k || !k.startsWith('sk-ant-')) { showToast('❌ Valid key daalo'); return; }
+  localStorage.setItem('voa_key', k);
+  document.getElementById('apiScreen').style.display = 'none';
+  showToast('✅ Key save ho gayi!');
+}
+function toggleEye() { eyeOn = !eyeOn; document.getElementById('apiKeyInput').type = eyeOn ? 'text' : 'password'; }
+function showSettings() { document.getElementById('apiKeyInput').value = ''; document.getElementById('apiScreen').style.display = 'flex'; }
+
+function initApp() {
+  document.getElementById('noteInput').addEventListener('input', function() {
+    document.getElementById('charCount').textContent = this.value.length;
+    document.getElementById('classifyBtn').disabled = !this.value.trim();
+  });
+
+  const pillsEl = document.getElementById('catPills');
+  Object.values(CATS).forEach(c => {
+    const p = document.createElement('span');
+    p.className = 'cat-pill';
+    p.textContent = c.label;
+    p.style.cssText = `color:${c.color};background:${c.bg};border-color:${c.border}`;
+    pillsEl.appendChild(p);
+  });
+
+  const micBtn = document.getElementById('micBtn');
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'hi-IN';
+    recognition.onresult = e => {
+      let t = ''; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+      document.getElementById('noteInput').value = t;
+      document.getElementById('charCount').textContent = t.length;
+      document.getElementById('classifyBtn').disabled = !t.trim();
+    };
+    recognition.onend = () => { isRecording = false; micBtn.classList.remove('recording'); micBtn.textContent = '🎙'; };
+    micBtn.addEventListener('click', () => {
+      if (isRecording) recognition.stop();
+      else { recognition.start(); isRecording = true; micBtn.classList.add('recording'); micBtn.textContent = '⏹'; showToast('Bol raha hoon... 🎙'); }
+    });
+  } else micBtn.style.opacity = '0.4';
+
+  if (history.length > 0) { document.getElementById('emptyState').style.display = 'none'; renderHistory(); }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const names = ['overview','swot','roadmap','actions','monetize','audience','keywords'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+}
+
+async function classify() {
+  const text = document.getElementById('noteInput').value.trim();
+  if (!text) return;
+  const apiKey = localStorage.getItem('voa_key');
+  if (!apiKey) { showSettings(); return; }
+
+  checkedActions = {};
+  document.getElementById('loadingBox').style.display = 'block';
+  document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
+  showError('');
+  document.getElementById('classifyBtn').disabled = true;
+
+  const prompt = `You are an elite business and life coach AI. Deeply analyze this voice note/idea and return a comprehensive JSON analysis in Hinglish (Hindi-English mix).
+
+Voice Note: "${text}"
+
+Return ONLY this JSON (no markdown, no backticks):
+{
+  "category": "CONTENT_IDEA|BUSINESS_DECISION|LIFE_MOMENT|TASK_TODO|PROBLEM|RANDOM_THOUGHT",
+  "confidence": 88,
+  "urgency": "HIGH|MEDIUM|LOW",
+  "summary": "3-4 line Hinglish mein deep summary",
+  "insight": "1 powerful unique observation",
+  "potential_score": 8,
+  "swot": {
+    "strengths": ["strength 1", "strength 2", "strength 3"],
+    "weaknesses": ["weakness 1", "weakness 2", "weakness 3"],
+    "opportunities": ["opportunity 1", "opportunity 2", "opportunity 3"],
+    "threats": ["threat 1", "threat 2", "threat 3"]
+  },
+  "roadmap": [
+    { "phase": "Week 1-2", "title": "Foundation", "desc": "Kya karna hai" },
+    { "phase": "Week 3-4", "title": "Build", "desc": "Kya karna hai" },
+    { "phase": "Month 2", "title": "Launch", "desc": "Kya karna hai" },
+    { "phase": "Month 3-6", "title": "Scale", "desc": "Kya karna hai" },
+    { "phase": "6-12 Month", "title": "Dominate", "desc": "Kya karna hai" }
+  ],
+  "actions": ["action 1", "action 2", "action 3", "action 4", "action 5", "action 6"],
+  "monetization": [
+    { "method": "Method name", "desc": "Kaise karoge", "timeline": "Kitne time mein", "potential": "₹X-Y/month" },
+    { "method": "Method name", "desc": "Kaise karoge", "timeline": "Kitne time mein", "potential": "₹X-Y/month" },
+    { "method": "Method name", "desc": "Kaise karoge", "timeline": "Kitne time mein", "potential": "₹X-Y/month" }
+  ],
+  "target_audience": [
+    { "icon": "👨‍💼", "label": "Audience type", "desc": "Kaun hain ye log" },
+    { "icon": "👩‍🎓", "label": "Audience type", "desc": "Kaun hain ye log" },
+    { "icon": "🧑‍💻", "label": "Audience type", "desc": "Kaun hain ye log" }
+  ],
+  "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5", "keyword6", "keyword7", "keyword8"]
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
+    });
+
+    if (res.status === 401) { showError('❌ API Key galat hai — ⚙️ settings se sahi key daalo'); document.getElementById('loadingBox').style.display = 'none'; document.getElementById('classifyBtn').disabled = false; return; }
+
+    const data = await res.json();
+    let raw = data.content?.[0]?.text || '{}';
+    raw = raw.replace(/```json|```/g, '').trim();
+    const r = JSON.parse(raw);
+    r.text = text;
+    currentResult = r;
+    currentData = r;
+
+    try { history = [r, ...history.slice(0, 9)]; localStorage.setItem('voa_h', JSON.stringify(history)); } catch(e) {}
+
+    renderAll(r);
+    renderHistory();
+    document.getElementById('loadingBox').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'block';
+    switchTab('overview');
+  } catch(e) {
+    showError('Kuch gadbad hui. Internet check karo ya ⚙️ se API key verify karo.');
+    document.getElementById('loadingBox').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'block';
   }
+  document.getElementById('classifyBtn').disabled = false;
+}
+
+function renderAll(r) {
+  const cat = CATS[r.category] || CATS.RANDOM_THOUGHT;
+  const uc = URGENCY_C[r.urgency] || '#888';
+
+  // Category header
+  document.getElementById('catHeaderEl').innerHTML = `
+    <div class="cat-header" style="background:${cat.bg};border-color:${cat.border}">
+      <div class="cat-label" style="color:${cat.color}">${cat.label}</div>
+      <div class="badges">
+        <span class="badge" style="background:${cat.color}22;color:${cat.color}">${r.confidence}% confident</span>
+        <span class="badge" style="background:${uc}18;color:${uc}">${r.urgency} urgency</span>
+        <span class="badge" style="background:#ffffff08;color:#aaa">⭐ ${r.potential_score}/10 potential</span>
+      </div>
+      <div class="summary">${r.summary}</div>
+      <div class="insight" style="color:${cat.color}">💬 ${r.insight}</div>
+    </div>`;
+
+  // Overview
+  document.getElementById('overview').innerHTML = `
+    <div class="card">
+      <div class="card-title">Quick Stats</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div style="background:${cat.bg};border:1px solid ${cat.border};border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:${cat.color}">${r.confidence}%</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Confidence</div>
+        </div>
+        <div style="background:${URGENCY_C[r.urgency]}10;border:1px solid ${URGENCY_C[r.urgency]}25;border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:${URGENCY_C[r.urgency]}">${r.urgency}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Urgency</div>
+        </div>
+        <div style="background:#ffffff08;border:1px solid #ffffff12;border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:#fff">${r.potential_score}/10</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Potential</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top Keywords</div>
+      <div class="keyword-cloud">${(r.keywords||[]).slice(0,5).map(k=>`<span class="kw" style="color:${cat.color};background:${cat.bg};border-color:${cat.border}">#${k}</span>`).join('')}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top Actions</div>
+      ${(r.actions||[]).slice(0,3).map((a,i)=>`<div class="action-item"><div style="width:21px;height:21px;border-radius:6px;background:${cat.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">${i+1}</div><div class="action-text" style="color:#ccc">${a}</div></div>`).join('')}
+    </div>`;
+
+  // SWOT
+  const sw = r.swot || {};
+  const swotConfig = [
+    { key: 'strengths', label: 'Strengths 💪', color: '#10B981', bg: '#10B98110', border: '#10B98125' },
+    { key: 'weaknesses', label: 'Weaknesses ⚠️', color: '#EF4444', bg: '#EF444410', border: '#EF444425' },
+    { key: 'opportunities', label: 'Opportunities 🚀', color: '#6C63FF', bg: '#6C63FF10', border: '#6C63FF25' },
+    { key: 'threats', label: 'Threats 🔴', color: '#F59E0B', bg: '#F59E0B10', border: '#F59E0B25' }
+  ];
+  document.getElementById('swot').innerHTML = `<div class="swot-grid">${swotConfig.map(s=>`
+    <div class="swot-box" style="background:${s.bg};border-color:${s.border}">
+      <div class="swot-label" style="color:${s.color}">${s.label}</div>
+      ${(sw[s.key]||[]).map(i=>`<div class="swot-item">${i}</div>`).join('')}
+    </div>`).join('')}</div>`;
+
+  // Roadmap
+  const phases = r.roadmap || [];
+  const phaseColors = [cat.color, '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+  document.getElementById('roadmap').innerHTML = `<div class="card"><div class="card-title">Complete Roadmap</div>${phases.map((p,i)=>`
+    <div class="roadmap-item">
+      <div class="roadmap-line">
+        <div class="roadmap-dot" style="background:${phaseColors[i%5]}22;color:${phaseColors[i%5]};border:2px solid ${phaseColors[i%5]}40">${i+1}</div>
+        ${i < phases.length-1 ? `<div class="roadmap-connector" style="background:linear-gradient(${phaseColors[i%5]},${phaseColors[(i+1)%5]});opacity:0.2"></div>` : ''}
+      </div>
+      <div class="roadmap-content">
+        <div class="roadmap-week" style="color:${phaseColors[i%5]}">${p.phase}</div>
+        <div class="roadmap-title">${p.title}</div>
+        <div class="roadmap-desc">${p.desc}</div>
+      </div>
+    </div>`).join('')}</div>`;
+
+  // Actions
+  checkedActions = {};
+  document.getElementById('actions').innerHTML = `<div class="card"><div class="card-title">Action Plan</div>${(r.actions||[]).map((a,i)=>`
+    <div class="action-item" onclick="toggleAction(${i})">
+      <div class="checkbox" id="cb-${i}" style="border-color:#2a2a3a">&nbsp;</div>
+      <div class="action-text" id="at-${i}" style="color:#ccc">${a}</div>
+    </div>`).join('')}</div>`;
+
+  // Monetize
+  document.getElementById('monetize').innerHTML = `<div class="card"><div class="card-title">Monetization Strategies</div>${(r.monetization||[]).map(m=>`
+    <div class="money-item">
+      <div class="money-title">💰 ${m.method}</div>
+      <div class="money-desc">${m.desc}</div>
+      <div style="display:flex;gap:6px;margin-top:5px">
+        <span class="money-badge" style="background:#10B98115;color:#10B981">📅 ${m.timeline}</span>
+        <span class="money-badge" style="background:#6C63FF15;color:#6C63FF">💵 ${m.potential}</span>
+      </div>
+    </div>`).join('')}</div>`;
+
+  // Audience
+  document.getElementById('audience').innerHTML = `<div class="card"><div class="card-title">Target Audience</div>${(r.target_audience||[]).map(a=>`
+    <div class="audience-item">
+      <div class="audience-icon" style="background:${cat.bg}">${a.icon}</div>
+      <div>
+        <div class="audience-label">${a.label}</div>
+        <div class="audience-desc">${a.desc}</div>
+      </div>
+    </div>`).join('')}</div>`;
+
+  // Keywords
+  document.getElementById('keywords').innerHTML = `<div class="card"><div class="card-title">SEO & Content Keywords</div><div class="keyword-cloud">${(r.keywords||[]).map(k=>`<span class="kw" style="color:${cat.color};background:${cat.bg};border-color:${cat.border}" onclick="copyKw('${k}')">#${k}</span>`).join('')}</div><p style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center">Tap karo copy karne ke liye</p></div>`;
+}
+
+function copyKw(k) { try { navigator.clipboard.writeText('#'+k); showToast('Copied: #'+k); } catch(e) { showToast('#'+k); } }
+
+function toggleAction(i) {
+  checkedActions[i] = !checkedActions[i];
+  const cat = CATS[currentResult?.category] || CATS.RANDOM_THOUGHT;
+  const cb = document.getElementById('cb-'+i), at = document.getElementById('at-'+i);
+  if (checkedActions[i]) { cb.style.background = cat.color; cb.style.borderColor = cat.color; cb.textContent = '✓'; at.style.color = '#333'; at.style.textDecoration = 'line-through'; }
+  else { cb.style.background = 'transparent'; cb.style.borderColor = '#2a2a3a'; cb.textContent = ' '; at.style.color = '#ccc'; at.style.textDecoration = 'none'; }
 }
 
 function renderHistory() {
   const box = document.getElementById('historyBox');
   if (history.length <= 1) { box.innerHTML = ''; return; }
-
   const items = history.slice(1).map(item => {
-    const c = CATEGORIES[item.category] || CATEGORIES.RANDOM_THOUGHT;
-    return `
-      <div class="history-item" onclick="loadHistory('${encodeURIComponent(JSON.stringify(item))}')" style="border-color:${c.border}">
-        <div class="history-top">
-          <span class="history-cat" style="color:${c.color}">${c.label}</span>
-          <span class="history-conf">${item.confidence}%</span>
-        </div>
-        <div class="history-text">${item.text}</div>
-      </div>
-    `;
+    const c = CATS[item.category] || CATS.RANDOM_THOUGHT;
+    return `<div class="history-item" onclick="loadHist('${encodeURIComponent(JSON.stringify(item))}')" style="border-color:${c.border}">
+      <div class="history-top"><span class="history-cat" style="color:${c.color}">${c.label}</span><span class="history-conf">${item.confidence}%</span></div>
+      <div class="history-text">${item.text}</div>
+    </div>`;
   }).join('');
-
-  box.innerHTML = `<div class="section-label">Recent Notes</div>${items}`;
+  box.innerHTML = `<div class="section-label">Recent Analyses</div>${items}`;
 }
 
-function loadHistory(encoded) {
-  const item = JSON.parse(decodeURIComponent(encoded));
+function loadHist(enc) {
+  const item = JSON.parse(decodeURIComponent(enc));
   document.getElementById('noteInput').value = item.text;
-  document.getElementById('charCount').textContent = item.text.length + ' chars';
+  document.getElementById('charCount').textContent = item.text.length;
   document.getElementById('classifyBtn').disabled = false;
-  currentResult = item;
-  renderResult(item);
+  currentResult = item; currentData = item;
+  renderAll(item);
+  document.getElementById('resultArea').style.display = 'block';
   document.getElementById('emptyState').style.display = 'none';
+  switchTab('overview');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function showLoading(show) {
-  document.getElementById('loadingBox').style.display = show ? 'block' : 'none';
-  document.getElementById('classifyBtn').disabled = show;
-}
-
-function showError(msg) {
-  const box = document.getElementById('errorBox');
-  box.style.display = msg ? 'block' : 'none';
-  box.textContent = msg;
-}
-
+function showError(msg) { const b = document.getElementById('errorBox'); b.style.display = msg ? 'block' : 'none'; b.textContent = msg; }
 function showToast(msg) {
-  const old = document.querySelector('.toast');
-  if (old) old.remove();
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2500);
+  const o = document.querySelector('.toast'); if (o) o.remove();
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2200);
 }
-
-// Load history on start
-if (history.length > 0) {
-  document.getElementById('emptyState').style.display = history.length === 0 ? 'block' : 'none';
-  renderHistory();
-}
-
-// Service Worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
-
-   
+</script>
+</body>
+</html>
